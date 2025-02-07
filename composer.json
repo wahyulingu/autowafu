@@ -1,0 +1,26 @@
+{
+    "name": "wahyulingu/autowafu",
+    "version": "1.0.0",
+    "autoload": {
+        "psr-4": {
+            "WahyuLingu\\AutoWAFu\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Wahyu",
+            "email": "wahyulingu@gmail.com"
+        }
+    ],
+    "require": {
+        "php-webdriver/webdriver": "^1.15",
+        "psy/psysh": "^0.12.7",
+        "laravel/prompts": "^0.3.4",
+        "illuminate/container": "^11.41",
+        "wahyulingu/piuu": "dev-main",
+        "illuminate/support": "^11.41"
+    },
+    "scripts": {
+        "start": "php run.php"
+    }
+}
