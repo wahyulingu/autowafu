@@ -15,8 +15,7 @@ class Main
     public function __construct(
         protected readonly WhatsappDriver $whatsappDriver,
         protected readonly DatabaseDriver $databaseDriver,
-        protected readonly AutomaticMode $automaticMode,
-        protected readonly Shell $shell) {}
+        protected readonly AutomaticMode $automaticMode) {}
 
     public function run()
     {
@@ -41,13 +40,15 @@ class Main
 
     private function startInteractiveShell()
     {
+        $vars = [
+            'whatsapp' => $this->whatsappDriver,
+        ];
+
         info('Masuk ke mode interaktif. Anda bisa mengontrol Selenium whatsappDriver di shell!');
 
-        $this->shell->setScopeVariables([
-            'whatsapp' => $this->whatsappDriver,
-        ]);
-
-        $this->shell->run();
+        $shell = new Shell;
+        $shell->setScopeVariables($vars);
+        $shell->run();
     }
 
     private function runAutomaticMode()

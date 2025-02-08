@@ -2205,12 +2205,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/wahyulingu/piuu.git",
-                "reference": "fd6b74c76c8f58325905f20d021a87b824f3a207"
+                "reference": "544e61cc9afb3ed9725e792b24b670da52fe108b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/wahyulingu/piuu/zipball/fd6b74c76c8f58325905f20d021a87b824f3a207",
-                "reference": "fd6b74c76c8f58325905f20d021a87b824f3a207",
+                "url": "https://api.github.com/repos/wahyulingu/piuu/zipball/544e61cc9afb3ed9725e792b24b670da52fe108b",
+                "reference": "544e61cc9afb3ed9725e792b24b670da52fe108b",
                 "shasum": ""
             },
             "require": {
@@ -2241,7 +2241,7 @@
                 "issues": "https://github.com/wahyulingu/piuu/issues",
                 "source": "https://github.com/wahyulingu/piuu/tree/main"
             },
-            "time": "2025-02-07T15:55:30+00:00"
+            "time": "2025-02-07T21:01:25+00:00"
         }
     ],
     "packages-dev": [],

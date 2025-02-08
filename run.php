@@ -47,7 +47,7 @@ $headless = confirm(
 
 $container = new Container;
 
-$container->bind(RemoteWebDriver::class, function () use ($seleniumUrl, $sessionPath, $headless) {
+$container->singleton(RemoteWebDriver::class, function () use ($seleniumUrl, $sessionPath, $headless) {
     $options = new ChromeOptions;
 
     // Gunakan user-data-dir agar sesi login tersimpan

@@ -19,6 +19,11 @@ class WhatsappDriver
         $this->remoteDriver->get('https://web.whatsapp.com');
     }
 
+    public function stopTyping(): void
+    {
+        $this->humanizedActions->stopTyping();
+    }
+
     public function quit()
     {
         $this->remoteDriver->quit();
@@ -40,11 +45,11 @@ class WhatsappDriver
         $this->humanizedActions->clickHumanized(fn () => $messageBox->sendKeys(WebDriverKeys::ENTER));
     }
 
-    public function sendMessageWithoutErrors($message)
+    public function sendMessageWithoutErrors($message, ?callable $callback = null)
     {
         $messageBox = $this->remoteDriver->findElement(WebDriverBy::xpath('//div[@contenteditable="true"][@data-tab="10"]'));
 
-        $this->humanizedActions->sendKeysHumanizedWithoutErrors($message, fn ($char) => $messageBox->sendKeys($char));
+        $this->humanizedActions->sendKeysHumanizedWithoutErrors($message, fn ($char) => $messageBox->sendKeys($char), $callback);
         $this->humanizedActions->clickHumanized(fn () => $messageBox->sendKeys(WebDriverKeys::ENTER));
     }
 
@@ -91,7 +96,7 @@ class WhatsappDriver
     public function holdPhoneNumbers(string $holderName, array $phoneNumbers)
     {
         $this->searchContact($holderName);
-        $this->sendMessage(implode(', ', $phoneNumbers));
+        $this->sendMessageWithoutErrors(implode(', ', $phoneNumbers));
     }
 
     public function formatPhoneNumber($phoneNumber)

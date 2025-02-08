@@ -2,6 +2,8 @@
 
 namespace WahyuLingu\AutoWAFu\Driver;
 
+use Illuminate\Support\Collection;
+
 class DatabaseDriver
 {
     private $filePath;
@@ -112,6 +114,16 @@ class DatabaseDriver
         }
 
         return $updated;
+    }
+
+    public function chunkData($size): Collection
+    {
+        return $this->data->chunk($size);
+    }
+
+    public function processChunks($size, callable $callback)
+    {
+        $this->chunkData($size)->each($callback);
     }
 
     public function searchByPhoneNumber($phoneNumber)
