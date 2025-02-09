@@ -2,17 +2,22 @@
 
 namespace WahyuLingu\AutoWAFu\Drivers;
 
-use Facebook\WebDriver\Exception\NoSuchElementException;
+use Exception;
+use Facebook\WebDriver\Exception\StaleElementReferenceException;
+use Facebook\WebDriver\Exception\TimeoutException;
 use Facebook\WebDriver\Remote\RemoteWebDriver;
 use Facebook\WebDriver\WebDriverBy;
+use Facebook\WebDriver\WebDriverExpectedCondition;
 use Facebook\WebDriver\WebDriverKeys;
+use Facebook\WebDriver\WebDriverWait;
 use WahyuLingu\Piuu\HumanizedActions;
 
 class WhatsappDriver
 {
     public function __construct(
         public readonly RemoteWebDriver $remoteDriver,
-        protected readonly HumanizedActions $humanizedActions) {}
+        protected readonly HumanizedActions $humanizedActions
+    ) {}
 
     public function open()
     {
@@ -32,25 +37,34 @@ class WhatsappDriver
     public function searchContact($contactName)
     {
         $searchBox = $this->remoteDriver->findElement(WebDriverBy::xpath("//div[@contenteditable='true']"));
-
         $this->humanizedActions->sendKeysHumanizedWithoutErrors($contactName, fn ($char) => $searchBox->sendKeys($char));
         $this->humanizedActions->clickHumanized(fn () => $searchBox->sendKeys(WebDriverKeys::ENTER));
     }
 
     public function sendMessage($message)
     {
-        $messageBox = $this->remoteDriver->findElement(WebDriverBy::xpath('//div[@contenteditable="true"][@data-tab="10"]'));
+        try {
+            $wait = new WebDriverWait($this->remoteDriver, 10);
+            $messageBox = $wait->until(WebDriverExpectedCondition::presenceOfElementLocated(
+                WebDriverBy::xpath('//div[@contenteditable="true"][@data-tab="10"]')
+            ));
 
-        $this->humanizedActions->sendKeysHumanized($message, fn ($char) => $messageBox->sendKeys($char));
-        $this->humanizedActions->clickHumanized(fn () => $messageBox->sendKeys(WebDriverKeys::ENTER));
+            $this->humanizedActions->sendKeysHumanized($message, fn ($char) => $messageBox->sendKeys("\xF0\x9F\x9A\x80"));
+            $this->humanizedActions->clickHumanized(fn () => $messageBox->sendKeys(WebDriverKeys::ENTER));
+        } catch (StaleElementReferenceException) {
+            $this->sendMessage($message); // Coba lagi jika elemen hilang
+        }
     }
 
-    public function sendMessageWithoutErrors($message, ?callable $callback = null)
+    public function sendMessageWithoutTypo($message, ?callable $callback = null)
     {
-        $messageBox = $this->remoteDriver->findElement(WebDriverBy::xpath('//div[@contenteditable="true"][@data-tab="10"]'));
-
-        $this->humanizedActions->sendKeysHumanizedWithoutErrors($message, fn ($char) => $messageBox->sendKeys($char), $callback);
-        $this->humanizedActions->clickHumanized(fn () => $messageBox->sendKeys(WebDriverKeys::ENTER));
+        try {
+            $messageBox = $this->remoteDriver->findElement(WebDriverBy::xpath('//div[@contenteditable="true"][@data-tab="10"]'));
+            $this->humanizedActions->sendKeysHumanizedWithoutErrors($message, fn ($char) => $messageBox->sendKeys($char), $callback);
+            $this->humanizedActions->clickHumanized(fn () => $messageBox->sendKeys(WebDriverKeys::ENTER));
+        } catch (StaleElementReferenceException) {
+            $this->sendMessageWithoutTypo($message, $callback); // Coba lagi jika elemen hilang
+        }
     }
 
     public function sendMediaMessage($filePath, $caption = '')
@@ -70,20 +84,38 @@ class WhatsappDriver
         $this->humanizedActions->clickHumanized(fn () => $sendButton->click());
     }
 
-    /**
-     * Memulai obrolan dengan nomor telepon yang diberikan.
-     *
-     * @param  string  $phoneNumber  Nomor telepon untuk memulai obrolan.
-     * @return bool Mengembalikan true jika obrolan berhasil dimulai, false sebaliknya.
-     */
     public function startChatFromBubble($phoneNumber): bool
     {
-        $this->humanizedActions->clickHumanized(fn () => $this->remoteDriver->findElement(WebDriverBy::xpath("//a[contains(text(), '".$phoneNumber."')]"))->click());
-        $this->humanizedActions->delay(100000, 200000);
+
+        $wait = new WebDriverWait($this->remoteDriver, 5);
+        try {
+            $chatButton = $wait->until(
+                WebDriverExpectedCondition::presenceOfElementLocated(
+                    WebDriverBy::xpath("//li[.//span[contains(text(), 'Salin nomor telepon')]]")
+                )
+            );
+            $this->humanizedActions->clickHumanized(fn () => $chatButton->click());
+        } catch (Exception) {
+        }
+
+        $wait = new WebDriverWait($this->remoteDriver, 5);
+        $phoneNumberElement = $wait->until(
+            WebDriverExpectedCondition::presenceOfElementLocated(
+                WebDriverBy::xpath("//a[contains(text(), '".$phoneNumber."')]")
+            )
+        );
+
+        $this->humanizedActions->clickHumanized(fn () => $phoneNumberElement->click());
 
         try {
-            $this->humanizedActions->clickHumanized(fn () => $this->remoteDriver->findElement(WebDriverBy::xpath("//li[.//span[contains(text(), '".$this->formatPhoneNumber($phoneNumber)."')]]"))->click());
-        } catch (NoSuchElementException) {
+            $chatButton = $wait->until(
+                WebDriverExpectedCondition::presenceOfElementLocated(
+                    WebDriverBy::xpath("//li[.//span[contains(text(), '".$this->formatPhoneNumber($phoneNumber)."')]]")
+                )
+            );
+            $this->humanizedActions->clickHumanized(fn () => $chatButton->click());
+        } catch (TimeoutException) {
+
             return false;
         }
 
@@ -93,13 +125,12 @@ class WhatsappDriver
     public function holdPhoneNumbers(string $holderName, array $phoneNumbers)
     {
         $this->searchContact($holderName);
-        $this->sendMessageWithoutErrors(implode(', ', $phoneNumbers));
+        $this->sendMessageWithoutTypo(implode(', ', $phoneNumbers));
     }
 
     public function formatPhoneNumber($phoneNumber)
     {
         $phoneNumber = preg_replace('/\D/', '', $phoneNumber);
-
         if (substr($phoneNumber, 0, 2) !== '62') {
             $phoneNumber = '62'.ltrim($phoneNumber, '0');
         }

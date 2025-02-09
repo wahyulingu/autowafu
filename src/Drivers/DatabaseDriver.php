@@ -97,6 +97,30 @@ class DatabaseDriver
         return false;
     }
 
+    public function markAsWhatsApp($phoneNumber)
+    {
+        $updated = false;
+        $this->data = $this->data->map(function ($item) use ($phoneNumber, &$updated) {
+            if (isset($item['nomorHp']) && $item['nomorHp'] === $phoneNumber) {
+                $item['isWhatsApp'] = true;
+                $updated = true;
+            }
+
+            return $item;
+        });
+
+        if ($updated) {
+            $this->saveData();
+        }
+
+        return $updated;
+    }
+
+    public function markAsContacted($phoneNumber)
+    {
+        return $this->updateStatusByPhoneNumber($phoneNumber, true);
+    }
+
     public function updateStatusByPhoneNumber($phoneNumber, $status)
     {
         $updated = false;

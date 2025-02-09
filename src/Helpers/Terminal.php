@@ -38,24 +38,24 @@ class Terminal
 
         self::showLogo();
 
-        try {
-            if (is_callable($value)) {
-
-                if ($callback) {
-                    return call_user_func($callback, call_user_func($value));
-                }
-
-                return call_user_func($value);
-
-            }
+        // try {
+        if (is_callable($value)) {
 
             if ($callback) {
-                return call_user_func($callback, $value);
+                return call_user_func($callback, call_user_func($value));
             }
 
-            return $value;
-        } catch (Exception $e) {
-            self::clear(fn () => error($e->getMessage()));
+            return call_user_func($value);
+
         }
+
+        if ($callback) {
+            return call_user_func($callback, $value);
+        }
+
+        return $value;
+        // } catch (Exception $e) {
+        //     self::clear(fn () => error($e->getMessage()));
+        // }
     }
 }
