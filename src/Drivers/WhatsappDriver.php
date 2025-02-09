@@ -1,6 +1,6 @@
 <?php
 
-namespace WahyuLingu\AutoWAFu\Driver;
+namespace WahyuLingu\AutoWAFu\Drivers;
 
 use Facebook\WebDriver\Exception\NoSuchElementException;
 use Facebook\WebDriver\Remote\RemoteWebDriver;

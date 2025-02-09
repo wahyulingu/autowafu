@@ -1,14 +1,14 @@
 <?php
 
-namespace WahyuLingu\AutoWAFu\Driver;
+namespace WahyuLingu\AutoWAFu\Drivers;
 
 use Illuminate\Support\Collection;
 
 class DatabaseDriver
 {
-    private $filePath;
+    private string $filePath;
 
-    private $data;
+    private Collection $data;
 
     private $error;
 
@@ -129,5 +129,22 @@ class DatabaseDriver
     public function searchByPhoneNumber($phoneNumber)
     {
         return $this->data->firstWhere('nomorHp', $phoneNumber);
+    }
+
+    public function getFollowedUpRecords($status = true): Collection
+    {
+        return $this->data->filter(function ($item) use ($status) {
+            return isset($item['sudahDihubungi']) && $item['sudahDihubungi'] === $status;
+        });
+    }
+
+    public function getNotFollowedUpRecords()
+    {
+        return $this->getFollowedUpRecords(false);
+    }
+
+    public function count()
+    {
+        return $this->data->count();
     }
 }
