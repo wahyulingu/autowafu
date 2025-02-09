@@ -10,6 +10,7 @@ use WahyuLingu\AutoWAFu\Drivers\WhatsappDriver;
 use WahyuLingu\AutoWAFu\Helpers\Terminal as HelpersTerminal;
 use WahyuLingu\Piuu\HumanizedActions;
 
+use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
 use function Laravel\Prompts\select;
 use function Laravel\Prompts\spin;
@@ -24,6 +25,8 @@ class Main
 
     protected bool $shouldStop = false;
 
+    protected bool $holderClosed = true;
+
     public function __construct(
         protected readonly WhatsappDriver $whatsappDriver,
         protected readonly DatabaseDriver $databaseDriver,
@@ -34,6 +37,24 @@ class Main
     protected function setHolderName(string $holderName)
     {
         $this->holderName = $holderName;
+    }
+
+    protected function openHolder()
+    {
+        if ($this->holderClosed) {
+            HelpersTerminal::spin(
+                clear: true,
+                message: "Membuka holder {$this->holderName}...",
+                callback: fn () => $this->whatsappDriver->searchContact($this->holderName)
+            );
+
+            $this->holderClosed = false;
+        }
+    }
+
+    protected function closeHolder()
+    {
+        $this->holderClosed = true;
     }
 
     protected function setCopywriting(string $copyWriting)
@@ -102,8 +123,8 @@ class Main
 
         $this->setCopywriting(textarea(
             label: 'Masukkan copywriting pesan:',
-            placeholder: 'Contoh: Halo {nama}, bagaimana kabar Anda?',
-            hint: 'Gunakan {nama} sebagai placeholder untuk nama kontak.',
+            placeholder: 'Contoh: Halo {namaPelanggan}, bagaimana kabar Anda?',
+            hint: 'Gunakan {namaPelanggan} sebagai placeholder untuk nama kontak.',
             validate: fn (string $value) => empty($value) ? 'Copywriting tidak boleh kosong.' : null
         ));
 
@@ -134,16 +155,16 @@ class Main
 
                 $this->holdDatabase($this->holderName, $data);
 
-                $this->sendMessage($data->first());
-
-                $data->splice(1)->each(function (array $record) {
+                $data->each(function (array $record) {
                     if ($this->shouldStop) {
                         return false;
                     }
 
-                    $this->findHolder($this->holderName);
+                    $this->openHolder($this->holderName);
                     $this->humanizedActions->delay(400000, 600000);
-                    $this->sendMessage($record);
+                    if ($this->sendMessage($record)) {
+                        $this->closeHolder();
+                    }
                 });
 
             });
@@ -151,32 +172,30 @@ class Main
 
     protected function sendMessage(array $record)
     {
-        return tap($this->whatsappDriver->startChatFromBubble($record['nomorHp']), function ($isWhatsApp) use ($record) {
-            if ($isWhatsApp) {
-                $this->databaseDriver->markAsWhatsApp($record['nomorHp']);
+        return tap(HelpersTerminal::spin(
+            message: "Mencoba membuka obrolan dengan {$record['namaPelanggan']} [{$record['nomorHp']}]",
+            callback: fn () => tap($this->whatsappDriver->startChatFromBubble($record['nomorHp']), function ($isWhatsApp) use ($record) {
+                if ($isWhatsApp) {
+                    $this->databaseDriver->markAsWhatsApp($record['nomorHp']);
 
-                $this->humanizedActions->delay(600000, 800000);
-                $this->whatsappDriver->sendMessage($this->parseCopywriting($record));
-                $this->databaseDriver->markAsContacted($record['nomorHp']);
-            }
-        });
-    }
+                    $this->humanizedActions->delay(600000, 800000);
+                    $this->whatsappDriver->sendMessage($this->parseCopywriting($record));
+                    $this->databaseDriver->markAsContacted($record['nomorHp']);
+                }
+            })),
 
-    protected function findHolder(string $holderName)
-    {
-        HelpersTerminal::spin(
-            clear: true,
-            message: "Mencari kontak holder {$holderName}...",
-            callback: fn () => $this->whatsappDriver->searchContact($holderName));
+            fn ($result) => ! $result && error("{$record['namaPelanggan']} [{$record['nomorHp']}] tidak memiliki akun WhatsApp."));
     }
 
     protected function holdDatabase(string $holderName, Collection $data)
     {
+        $this->openHolder();
+
         HelpersTerminal::spin(
             clear: true,
             message: 'Menampung record ke dalam obrolan untuk mempermudah pembukaan chat...',
-            callback: fn () => $this->humanizedActions->clickHumanized(function () use ($data, $holderName) {
-                $this->whatsappDriver->holdPhoneNumbers($holderName, $data->pluck('nomorHp')->toArray());
+            callback: fn () => $this->humanizedActions->clickHumanized(function () use ($data) {
+                $this->whatsappDriver->sendMessageWithoutTypo($data->pluck('nomorHp')->implode(', '));
             }));
     }
 }

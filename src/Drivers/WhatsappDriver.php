@@ -2,7 +2,7 @@
 
 namespace WahyuLingu\AutoWAFu\Drivers;
 
-use Exception;
+use Facebook\WebDriver\Exception\ElementClickInterceptedException;
 use Facebook\WebDriver\Exception\StaleElementReferenceException;
 use Facebook\WebDriver\Exception\TimeoutException;
 use Facebook\WebDriver\Remote\RemoteWebDriver;
@@ -37,6 +37,7 @@ class WhatsappDriver
     public function searchContact($contactName)
     {
         $searchBox = $this->remoteDriver->findElement(WebDriverBy::xpath("//div[@contenteditable='true']"));
+        $this->humanizedActions->clickHumanized(fn () => $searchBox->clear());
         $this->humanizedActions->sendKeysHumanizedWithoutErrors($contactName, fn ($char) => $searchBox->sendKeys($char));
         $this->humanizedActions->clickHumanized(fn () => $searchBox->sendKeys(WebDriverKeys::ENTER));
     }
@@ -49,7 +50,7 @@ class WhatsappDriver
                 WebDriverBy::xpath('//div[@contenteditable="true"][@data-tab="10"]')
             ));
 
-            $this->humanizedActions->sendKeysHumanized($message, fn ($char) => $messageBox->sendKeys("\xF0\x9F\x9A\x80"));
+            $this->humanizedActions->sendKeysHumanized($message, fn ($char) => $messageBox->sendKeys($char));
             $this->humanizedActions->clickHumanized(fn () => $messageBox->sendKeys(WebDriverKeys::ENTER));
         } catch (StaleElementReferenceException) {
             $this->sendMessage($message); // Coba lagi jika elemen hilang
@@ -86,24 +87,25 @@ class WhatsappDriver
 
     public function startChatFromBubble($phoneNumber): bool
     {
-
         $wait = new WebDriverWait($this->remoteDriver, 5);
+
         try {
-            $chatButton = $wait->until(
+            $phoneNumberElement = $wait->until(
+                WebDriverExpectedCondition::presenceOfElementLocated(
+                    WebDriverBy::xpath("//a[contains(text(), '".$phoneNumber."')]")
+                )
+            );
+        } catch (ElementClickInterceptedException) {
+            $copyButton = $wait->until(
                 WebDriverExpectedCondition::presenceOfElementLocated(
                     WebDriverBy::xpath("//li[.//span[contains(text(), 'Salin nomor telepon')]]")
                 )
             );
-            $this->humanizedActions->clickHumanized(fn () => $chatButton->click());
-        } catch (Exception) {
-        }
 
-        $wait = new WebDriverWait($this->remoteDriver, 5);
-        $phoneNumberElement = $wait->until(
-            WebDriverExpectedCondition::presenceOfElementLocated(
-                WebDriverBy::xpath("//a[contains(text(), '".$phoneNumber."')]")
-            )
-        );
+            $this->humanizedActions->clickHumanized(fn () => $copyButton->click());
+
+            return $this->humanizedActions->clickHumanized(fn () => $this->startChatFromBubble($phoneNumber));
+        }
 
         $this->humanizedActions->clickHumanized(fn () => $phoneNumberElement->click());
 

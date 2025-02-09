@@ -2,7 +2,7 @@
 
 require 'vendor/autoload.php';
 
-use Facebook\WebDriver\Chrome\ChromeOptions;
+use Facebook\WebDriver\Firefox\FirefoxOptions;
 use Facebook\WebDriver\Remote\DesiredCapabilities;
 use Facebook\WebDriver\Remote\RemoteWebDriver;
 use Illuminate\Container\Container;
@@ -41,23 +41,23 @@ Terminal::clear(fn () => Container::getInstance(), function (Container $containe
         );
 
         $mode = select(
-            label: 'Pilih Mode Chrome',
-            hint: 'Mode Headless tidak akan membuka jendela Chrome. Pastikan Anda sudah login.',
+            label: 'Pilih Mode Firefox',
+            hint: 'Mode Headless tidak akan membuka jendela Firefox. Pastikan Anda sudah login.',
             options: [
                 'normal' => 'Mode Normal',
                 'headless' => 'Mode Headless',
             ]
         );
 
-        $options = new ChromeOptions;
+        $options = new FirefoxOptions;
 
-        // Gunakan user-data-dir agar sesi login tersimpan
-        $options->addArguments(['--user-data-dir='.$sessionPath]);
+        // Gunakan profil agar sesi login tersimpan
+        $options->addArguments(['-profile', $sessionPath]);
 
-        if ($mode == 'headless') {
+        if ($mode === 'headless') {
             // Jika mode headless, tambahkan opsi berikut
             $options->addArguments([
-                '--headless=new', // Headless mode
+                '-headless', // Headless mode
                 '--disable-gpu',
                 '--no-sandbox',
                 '--disable-dev-shm-usage',
@@ -70,10 +70,10 @@ Terminal::clear(fn () => Container::getInstance(), function (Container $containe
             $options->addArguments(['--start-maximized']);
         }
 
-        $capabilities = DesiredCapabilities::chrome();
-        $capabilities->setCapability(ChromeOptions::CAPABILITY, $options);
+        $capabilities = DesiredCapabilities::firefox();
+        $capabilities->setCapability(FirefoxOptions::CAPABILITY, $options);
 
-        return Terminal::clear(fn () => spin(fn () => RemoteWebDriver::create($seleniumUrl, $capabilities), 'Menjalankan Chrome...'));
+        return Terminal::clear(fn () => spin(fn () => RemoteWebDriver::create($seleniumUrl, $capabilities), 'Menjalankan Firefox...'));
     });
 
     $container->make(Main::class)->run();
