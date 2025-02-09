@@ -153,7 +153,7 @@ class Main
                     return false;
                 }
 
-                $this->holdDatabase($this->holderName, $data);
+                $this->holdDatabase($data);
 
                 $data->each(function (array $record) {
                     if ($this->shouldStop) {
@@ -162,9 +162,7 @@ class Main
 
                     $this->openHolder($this->holderName);
                     $this->humanizedActions->delay(400000, 600000);
-                    if ($this->sendMessage($record)) {
-                        $this->closeHolder();
-                    }
+                    $this->sendMessage($record);
                 });
 
             });
@@ -173,27 +171,34 @@ class Main
     protected function sendMessage(array $record)
     {
         return tap(HelpersTerminal::spin(
+            clear: true,
             message: "Mencoba membuka obrolan dengan {$record['namaPelanggan']} [{$record['nomorHp']}]",
-            callback: fn () => tap($this->whatsappDriver->startChatFromBubble($record['nomorHp']), function ($isWhatsApp) use ($record) {
+            callback: fn () => $this->whatsappDriver->startChatFromBubble($record['nomorHp'])),
+            function ($isWhatsApp) use ($record) {
+
                 if ($isWhatsApp) {
+                    HelpersTerminal::clear(fn () => info("Berhasil membuka brolan dengan {$record['namaPelanggan']} [{$record['nomorHp']}]"));
+                    $this->closeHolder();
                     $this->databaseDriver->markAsWhatsApp($record['nomorHp']);
-
                     $this->humanizedActions->delay(600000, 800000);
-                    $this->whatsappDriver->sendMessage($this->parseCopywriting($record));
+                    HelpersTerminal::spin(
+                        message: "Mengetik pesan {$record['namaPelanggan']} [{$record['nomorHp']}]",
+                        callback: fn () => $this->whatsappDriver->sendMessage($this->parseCopywriting($record)));
                     $this->databaseDriver->markAsContacted($record['nomorHp']);
+                    HelpersTerminal::clear(fn () => info("Berhasi mengirim pesan ke {$record['namaPelanggan']} [{$record['nomorHp']}]"));
+                } else {
+                    HelpersTerminal::clear(fn () => error("{$record['namaPelanggan']} [{$record['nomorHp']}] tidak memiliki akun WhatsApp."));
                 }
-            })),
-
-            fn ($result) => ! $result && error("{$record['namaPelanggan']} [{$record['nomorHp']}] tidak memiliki akun WhatsApp."));
+            });
     }
 
-    protected function holdDatabase(string $holderName, Collection $data)
+    protected function holdDatabase(Collection $data)
     {
         $this->openHolder();
 
         HelpersTerminal::spin(
             clear: true,
-            message: 'Menampung record ke dalam obrolan untuk mempermudah pembukaan chat...',
+            message: "Menampung record ke dalam obrolan dengan {$this->holderName} untuk mencari akun WhatsApp",
             callback: fn () => $this->humanizedActions->clickHumanized(function () use ($data) {
                 $this->whatsappDriver->sendMessageWithoutTypo($data->pluck('nomorHp')->implode(', '));
             }));
