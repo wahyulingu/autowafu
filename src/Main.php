@@ -17,6 +17,8 @@ use function Laravel\Prompts\text;
 
 class Main
 {
+    protected string $holderName;
+
     protected bool $shouldStop = false;
 
     public function __construct(
@@ -25,6 +27,11 @@ class Main
         protected readonly HumanizedActions $humanizedActions,
         protected readonly Terminal $terminal,
         protected readonly Shell $shell) {}
+
+    protected function setHolderName(string $holderName)
+    {
+        $this->holderName = $holderName;
+    }
 
     public function run()
     {
@@ -75,34 +82,52 @@ class Main
         $notFollowedRecords = $this->databaseDriver->getNotFollowedUpRecords();
         info("Mode Otomatis dipilih, menemukan {$notFollowedRecords->count()} dari {$this->databaseDriver->count()} record database yang belum difu");
 
-        $chunkSize = text(
-            label: 'Segmentasi database:',
-            placeholder: 'Contoh: 40',
-            hint: 'Jumlah database yang akan diproses dalam satu waktu.',
-            validate: fn (string $value) => match (true) {
-                ! is_numeric($value) => 'Input harus berupa angka.',
-                intval($value) <= 0 => 'Jumlah database harus lebih dari 0.',
-                default => null
-            }
-        );
-
-        $holderName = text(
+        $this->setHolderName(text(
             label: 'Masukkan nama kontak untuk menahan kumpulan nomor:',
             placeholder: 'Contoh: John Doe',
-            hint: 'Nomor WA dari record yang akan diproses dikirin ke kontak ini terlebih dahulu untuk membuka obrolan.',
+            hint: 'Nomor WA dari record yang akan diproses dikirim ke kontak ini terlebih dahulu untuk membuka obrolan.',
             validate: fn (string $value) => empty($value) ? 'Nama kontak tidak boleh kosong.' : null
-        );
+        ));
 
-        $notFollowedRecords->chunkData($chunkSize, function (Collection $data) use ($holderName) {
+        $notFollowedRecords
+            ->chunk(text(
+                label: 'Segmentasi database:',
+                placeholder: 'Contoh: 40',
+                hint: 'Jumlah database yang akan diproses dalam satu waktu.',
+                validate: fn (string $value) => match (true) {
+                    ! is_numeric($value) => 'Input harus berupa angka.',
+                    intval($value) <= 0 => 'Jumlah database harus lebih dari 0.',
+                    default => null
+                }
+            ))
 
-            if ($this->shouldStop) {
-                return false;
-            }
+            ->each(function (Collection $data) {
 
-            $this->holdDatabase($holderName, $data);
-            $data->each(function (array $record) {
-                //
+                if ($this->shouldStop) {
+                    return false;
+                }
+
+                $this->holdDatabase($this->holderName, $data);
+
+                $firstRecord = $data->first();
+
+                sleep(10);
+
+                $data->splice(1)->each(function (array $record) {
+                    if ($this->shouldStop) {
+                        return false;
+                    }
+
+                    // $this->findHolder($this->holderName);
+                });
+
             });
+    }
+
+    protected function sendMessage(string $phoneNumber, string $message)
+    {
+        return tap($this->whatsappDriver->startChatFromBubble($phoneNumber), function () use ($message) {
+            $this->whatsappDriver->sendMessage($message);
         });
     }
 
@@ -110,7 +135,7 @@ class Main
     {
         HelpersTerminal::spin(
             clear: true,
-            message: 'Mencari kontak holder...',
+            message: 'Mencari kontak holder {$holderName}...',
             callback: fn () => $this->whatsappDriver->searchContact($holderName));
     }
 

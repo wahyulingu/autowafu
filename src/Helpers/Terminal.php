@@ -26,7 +26,7 @@ class Terminal
     public static function spin(Closure $callback, string $message = '', bool $clear = false): mixed
     {
         if ($clear) {
-            clear();
+            return self::clear(fn () => spin($callback, $message));
         }
 
         return spin($callback, $message);

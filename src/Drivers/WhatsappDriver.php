@@ -74,13 +74,10 @@ class WhatsappDriver
      * Memulai obrolan dengan nomor telepon yang diberikan.
      *
      * @param  string  $phoneNumber  Nomor telepon untuk memulai obrolan.
-     * @param  string  $holderName  Nama kontak. Kontak ini digunakan untuk menahan nomor sebelum diklik, bukan kontak target untuk pesan.
      * @return bool Mengembalikan true jika obrolan berhasil dimulai, false sebaliknya.
      */
-    public function startChatWithNumber($phoneNumber, string $holderName): bool
+    public function startChatFromBubble($phoneNumber): bool
     {
-        $this->searchContact($holderName);
-
         $this->humanizedActions->clickHumanized(fn () => $this->remoteDriver->findElement(WebDriverBy::xpath("//a[contains(text(), '".$phoneNumber."')]"))->click());
         $this->humanizedActions->delay(100000, 200000);
 
