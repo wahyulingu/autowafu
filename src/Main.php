@@ -117,7 +117,8 @@ class Main
 
     private function runAutomaticMode()
     {
-        $notFollowedRecords = $this->databaseDriver->getNotFollowedUpRecords();
+        $notFollowedRecords = $this->databaseDriver->getNotFollowedUpRecords()
+            ->filter(fn ($record) => ! $this->databaseDriver->isMarkedAsNotWhatsApp($record['nomorHp']));
 
         HelpersTerminal::clear(fn () => info("Mode Otomatis dipilih, menemukan {$notFollowedRecords->count()} dari {$this->databaseDriver->count()} record database yang belum difu"));
 
@@ -177,17 +178,19 @@ class Main
             function ($isWhatsApp) use ($record) {
 
                 if ($isWhatsApp) {
-                    HelpersTerminal::clear(fn () => info("Berhasil membuka brolan dengan {$record['namaPelanggan']} [{$record['nomorHp']}]"));
+                    HelpersTerminal::clear(fn () => info("Berhasil membuka obrolan dengan {$record['namaPelanggan']} [{$record['nomorHp']}]"));
                     $this->closeHolder();
                     $this->databaseDriver->markAsWhatsApp($record['nomorHp']);
                     $this->humanizedActions->delay(600000, 800000);
                     HelpersTerminal::spin(
-                        message: "Mengetik pesan {$record['namaPelanggan']} [{$record['nomorHp']}]",
+                        message: "Mengetik pesan untuk {$record['namaPelanggan']} [{$record['nomorHp']}]",
                         callback: fn () => $this->whatsappDriver->sendMessage($this->parseCopywriting($record)));
                     $this->databaseDriver->markAsContacted($record['nomorHp']);
                     HelpersTerminal::clear(fn () => info("Berhasi mengirim pesan ke {$record['namaPelanggan']} [{$record['nomorHp']}]"));
+                    $this->humanizedActions->delay(600000, 800000);
                 } else {
                     HelpersTerminal::clear(fn () => error("{$record['namaPelanggan']} [{$record['nomorHp']}] tidak memiliki akun WhatsApp."));
+                    $this->humanizedActions->delay(600000, 800000);
                 }
             });
     }
@@ -199,8 +202,9 @@ class Main
         HelpersTerminal::spin(
             clear: true,
             message: "Menampung record ke dalam obrolan dengan {$this->holderName} untuk mencari akun WhatsApp",
-            callback: fn () => $this->humanizedActions->clickHumanized(function () use ($data) {
-                $this->whatsappDriver->sendMessageWithoutTypo($data->pluck('nomorHp')->implode(', '));
-            }));
+            callback: fn () => $this->humanizedActions->clickHumanized(
+                fn () => $data->each(
+                    fn (array $record) => $this->humanizedActions->clickHumanized(
+                        fn () => $this->whatsappDriver->sendMessageWithoutTypo($record['nomorHp'])))));
     }
 }

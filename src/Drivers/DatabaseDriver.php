@@ -12,12 +12,20 @@ class DatabaseDriver
 
     private $error;
 
+    /**
+     * DatabaseDriyr constructor.
+     *
+     * @param  string  $filePath
+     */
     public function __construct($filePath = './data.json')
     {
         $this->filePath = $filePath;
         $this->initializeData();
     }
 
+    /**
+     * Initialize data from the file or create a new collection.
+     */
     private function initializeData()
     {
         if (! file_exists($this->filePath)) {
@@ -28,12 +36,20 @@ class DatabaseDriver
         }
     }
 
+    /**
+     * Load data from a specified file.
+     *
+     * @param  string  $filePath
+     */
     public function loadFromFile($filePath)
     {
         $this->filePath = $filePath;
         $this->loadData();
     }
 
+    /**
+     * Load data from the file.
+     */
     private function loadData()
     {
         try {
@@ -44,6 +60,9 @@ class DatabaseDriver
         }
     }
 
+    /**
+     * Save data to the file.
+     */
     private function saveData()
     {
         try {
@@ -54,23 +73,43 @@ class DatabaseDriver
         }
     }
 
+    /**
+     * Handle errors by setting the error message and throwing an exception.
+     *
+     * @throws \Exception
+     */
     private function handleError(\Exception $e)
     {
         $this->error = $e->getMessage();
         throw new \Exception($this->error);
     }
 
-    public function fetchAll()
+    /**
+     * Fetch all data.
+     */
+    public function fetchAll(): Collection
     {
         return $this->data;
     }
 
+    /**
+     * Fetch data by key.
+     *
+     * @param  mixed  $key
+     * @return mixed
+     */
     public function fetch($key)
     {
         return $this->data->get($key);
     }
 
-    public function execute($key, $value)
+    /**
+     * Execute an update or insert operation.
+     *
+     * @param  mixed  $key
+     * @param  mixed  $value
+     */
+    public function execute($key, $value): bool
     {
         $this->data->put($key, $value);
         $this->saveData();
@@ -78,12 +117,20 @@ class DatabaseDriver
         return true;
     }
 
-    public function getError()
+    /**
+     * Get the last error message.
+     */
+    public function getError(): ?string
     {
         return $this->error;
     }
 
-    public function updateContactStatus($key, $status)
+    /**
+     * Update the contact status by key.
+     *
+     * @param  mixed  $key
+     */
+    public function updateContactStatus($key, bool $status): bool
     {
         if ($this->data->has($key)) {
             $contact = $this->data->get($key);
@@ -97,12 +144,49 @@ class DatabaseDriver
         return false;
     }
 
-    public function markAsWhatsApp($phoneNumber)
+    /**
+     * Mark a contact as not using WhatsApp by phone number.
+     */
+    public function markAsNotWhatsApp(string $phoneNumber): bool
+    {
+        return $this->updateStatusByPhoneNumber($phoneNumber, false, 'isWhatsApp');
+    }
+
+    /**
+     * Check if a contact is marked as using WhatsApp by phone number.
+     */
+    public function isMarkedAsWhatsApp(string $phoneNumber): bool
+    {
+        $contact = $this->searchByPhoneNumber($phoneNumber);
+
+        return isset($contact['isWhatsApp']) ? $contact['isWhatsApp'] : false;
+    }
+
+    /**
+     * Mark a contact as not using WhatsApp by phone number.
+     */
+    public function markAsWhatsApp(string $phoneNumber): bool
+    {
+        return $this->updateStatusByPhoneNumber($phoneNumber, false, 'isWhatsApp');
+    }
+
+    /**
+     * Mark a contact as contacted by phone number.
+     */
+    public function markAsContacted(string $phoneNumber): bool
+    {
+        return $this->updateStatusByPhoneNumber($phoneNumber, true, 'sudahDihubungi');
+    }
+
+    /**
+     * Update a specific status by phone number.
+     */
+    private function updateStatusByPhoneNumber(string $phoneNumber, bool $status, string $statusKey): bool
     {
         $updated = false;
-        $this->data = $this->data->map(function ($item) use ($phoneNumber, &$updated) {
+        $this->data = $this->data->map(function ($item) use ($phoneNumber, $status, $statusKey, &$updated) {
             if (isset($item['nomorHp']) && $item['nomorHp'] === $phoneNumber) {
-                $item['isWhatsApp'] = true;
+                $item[$statusKey] = $status;
                 $updated = true;
             }
 
@@ -116,58 +200,61 @@ class DatabaseDriver
         return $updated;
     }
 
-    public function markAsContacted($phoneNumber)
-    {
-        return $this->updateStatusByPhoneNumber($phoneNumber, true);
-    }
-
-    public function updateStatusByPhoneNumber($phoneNumber, $status)
-    {
-        $updated = false;
-        $this->data = $this->data->map(function ($item) use ($phoneNumber, $status, &$updated) {
-            if (isset($item['nomorHp']) && $item['nomorHp'] === $phoneNumber) {
-                $item['sudahDihubungi'] = $status;
-                $updated = true;
-            }
-
-            return $item;
-        });
-
-        if ($updated) {
-            $this->saveData();
-        }
-
-        return $updated;
-    }
-
-    public function chunkData($size): Collection
+    /**
+     * Chunk the data into smaller collections.
+     */
+    public function chunkData(int $size): Collection
     {
         return $this->data->chunk($size);
     }
 
-    public function processChunks($size, callable $callback)
+    /**
+     * Process each chunk of data with a callback.
+     */
+    public function processChunks(int $size, callable $callback)
     {
         $this->chunkData($size)->each($callback);
     }
 
-    public function searchByPhoneNumber($phoneNumber)
+    /**
+     * Search for a record by phone number.
+     *
+     * @return mixed
+     */
+    public function searchByPhoneNumber(string $phoneNumber)
     {
         return $this->data->firstWhere('nomorHp', $phoneNumber);
     }
 
-    public function getFollowedUpRecords($status = true): Collection
+    /**
+     * Check if a contact is marked as not using WhatsApp by phone number.
+     */
+    public function isMarkedAsNotWhatsApp(string $phoneNumber): bool
+    {
+        $contact = $this->searchByPhoneNumber($phoneNumber);
+
+        return isset($contact['isWhatsApp']) ? ! $contact['isWhatsApp'] : false;
+    }
+
+    public function getFollowedUpRecords(bool $status = true): Collection
     {
         return $this->data->filter(function ($item) use ($status) {
             return isset($item['sudahDihubungi']) && $item['sudahDihubungi'] === $status;
         });
     }
 
-    public function getNotFollowedUpRecords()
+    /**
+     * Get all records that have not been followed up.
+     */
+    public function getNotFollowedUpRecords(): Collection
     {
         return $this->getFollowedUpRecords(false);
     }
 
-    public function count()
+    /**
+     * Count the number of records.
+     */
+    public function count(): int
     {
         return $this->data->count();
     }
